@@ -21,7 +21,6 @@ int ReceiveAnswer5DB_CB(void*dist,int col_n,char** fields,char**col_names);
 ofstream err_db_log_file;
 
 
-#define UP2WEB_SOCKET "/tmp/water_pump_socket.socket"
 #define BACKLOG 1 // how many pending connections queue will hold
 ///**************************************************************************************************
 
@@ -231,7 +230,7 @@ int tUp2Web_cl::Serialize(char*buf) {
 
 /**< This vector used later to check column presence in database
 drawback of this - we have to check that same name declared here and at the moment of DB creation*/
-#warning TODO (vpq@list.ru#1#): 2 time declared same columns of database
+#warning TODO (vpq@list.ru#1#): 3 time declared same columns of database
 const std::vector <std::string> tUp2Web_cl::DB_columns_arr={"id","date","WF_counter","PP_capacity","PP_capacity_avg","TK_volume","PP_ON_ACC","PP_RUN_MAX","PP_RUN_MIN","PP_RUN_AT_PULSE","alarms"};
 
 void tUp2Web_cl::DB_Open(void) {
@@ -359,9 +358,16 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         if(row_amount>MAX_REQUESTED_ROW_AMOUNT)row_amount=MAX_REQUESTED_ROW_AMOUNT;
         DEBUG(std::cout<<"amount="<<row_amount<<std::endl;)
     }else row_amount=DEFAULT_REQUESTED_ROW_AMOUNT;///magic number;). May be better to not allow default number?
-    json_t* colunms_arr_obj;
-    if((colunms_arr_obj=json_object_get(root,"columns"))!=NULL){
-        int columns_size=json_array_size(colunms_arr_obj);
+    json_t* columns_arr_obj;
+    if((columns_arr_obj=json_object_get(root,"columns"))!=NULL){
+        size_t idx;
+        json_t* arr_elem_obj;
+        std::string arr_elem;
+        int columns_size=json_array_size(columns_arr_obj);
+        json_array_foreach(columns_arr_obj,idx,arr_elem_obj){
+            if(IsInColumns(arr_elem=json_string_value(arr_elem_obj)))
+                std::cout<<"      element "<<idx<<"="<<arr_elem<<endl;
+        }
         DEBUG(std::cout<<"column numbers:"<<columns_size<<endl;)
 
     }else return -2;

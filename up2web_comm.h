@@ -17,6 +17,10 @@ void Up2webCommPrc(void);
 #define MAXLOGROWNUMS 1000000l //maximum size of database, magic number
 #define MAXLOG_TRUNCATE_THRESHOLD 100
 #define DBLOGCOLUMNNUM 6
+
+#define UP2WEB_SOCKET "/tmp/water_pump_socket.socket"
+
+
 typedef enum{PP_ON_ACC,PP_RUN_MAX,PP_RUN_MIN,PP_RUN_AT_PULSE}touts_arr_en;
 typedef struct{
     std::mutex pump_mutex;
