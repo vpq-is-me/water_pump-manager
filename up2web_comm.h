@@ -49,7 +49,7 @@ public:
     int Serialize(char*buf);
     void DB_Open(void);
     int DB_AddRow(void);
-    int DB_ServeTableRequest(json_t*root);
+    int DB_ServeTableRequest(json_t*root,char**answ);
 private:
     tShared_mem_st* smem;
     sqlite3* log_db=nullptr;

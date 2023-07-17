@@ -130,10 +130,13 @@ void Up2webCommPrc(void) {
                     std::cout<<"Received 'Reset Alarm command'"<<std::endl;
                     break;
                 }
-                case TAG_DB_REQUEST:
-                    if(up2web.DB_ServeTableRequest(root))
+                case TAG_DB_REQUEST:{
+                    char *answer=nullptr;
+                    if(up2web.DB_ServeTableRequest(root,&answer))
                         std::cout<<"Received unsupported request"<<std::endl;
-                    break;
+                    DEBUG(std::cout<<std::endl<<"answer:"<<std::endl<<answer<<std::endl;)
+                    free(answer);
+                    break;}
                 default:
                     std::cout<<"Received unknown tag No:"<<tag<<std::endl;
                     break;
@@ -339,7 +342,7 @@ unsigned int str_hash_vol(char const*str,int max_len=256) {
 }
 
 
-int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
+int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     char const* str_val;
     std::string sql;
     int64_t base_id;
@@ -363,15 +366,17 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
     std::string columns_sql_str="";
     if((columns_arr_obj=json_object_get(root,"columns"))!=NULL){
         size_t idx;
-        json_auto_t* arr_elem_obj;
+        json_t* arr_elem_obj;
         std::string arr_elem;
         char colon=' ';
-        json_array_foreach(columns_arr_obj,idx,arr_elem_obj) {
+        idx=0;
+        while(idx<json_array_size(columns_arr_obj) && (arr_elem_obj=json_array_get(columns_arr_obj,idx))){//arr_elem_obj is 'borrowed' reference (see json library), so it is not required to call 'json_decref()'
             if(IsInColumns(arr_elem=json_string_value(arr_elem_obj))) {
                 columns_sql_str+=colon;
                 columns_sql_str+=arr_elem;
                 colon=',';
-            }
+                idx++;
+            }else json_array_remove(columns_arr_obj,idx);//remove this unknown colunm name from array, because this array would be send back with actual memebers
         }
     }else return -2;
     if(columns_sql_str=="")return -2;
@@ -391,7 +396,7 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         DEBUG(std::cout<<"first ID="<<base_id<<std::endl;)
         break;
     case str_hash("id"):{
-        json_auto_t* id_obj=json_object_get(root,"id");
+        json_t* id_obj=json_object_get(root,"id");
         if(id_obj==NULL)return -1;
         json_int_t id=json_integer_value(id_obj);
         sql="SELECT id FROM logtable WHERE id=" + std::to_string(id);
@@ -400,7 +405,7 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     case str_hash("date"):{
-        json_auto_t* date_obj=json_object_get(root,"date");
+        json_t* date_obj=json_object_get(root,"date");//get borrowed reference, so not required to call 'json_decref()'
         if(date_obj==NULL)return -1;
         json_int_t date=json_integer_value(date_obj);
         sql="SELECT max(id) FROM logtable WHERE date<=" + std::to_string(date);
@@ -409,7 +414,7 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     case str_hash("counter"):{
-        json_auto_t* WF_counter_obj=json_object_get(root,"counter");
+        json_t* WF_counter_obj=json_object_get(root,"counter");
         if(WF_counter_obj==NULL)return -1;
         json_int_t WF_counter=json_integer_value(WF_counter_obj);
         sql="SELECT max(id) FROM logtable WHERE WF_counter<=" + std::to_string(WF_counter);
@@ -418,11 +423,21 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     }
+    json_t* data_arr_obj=json_array();//prepare array for answer from DB. This array will contain array of answer rows. Each row in their turn will also presented as array of values from DB in form of array of char[]
+
     int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
     if(last_id<0)last_id=0;
-    sql="SELECT " +columns_sql_str+" FROM logtable WHERE id BETWEEN " + std::to_string(base_id) + " AND " + std::to_string(last_id) +" ORDER BY id ACS";
-    sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
+    if(!dir_up1_down0)std::swap(base_id,last_id);
+    sql="SELECT " +columns_sql_str+" FROM logtable WHERE id BETWEEN " + std::to_string(base_id) + " AND " + std::to_string(last_id) +" ORDER BY id ASC";
     DEBUG(std::cout<<"SQL  request>>"<<sql<<"<<"<<endl;)
+    sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveNewRow5DB_CB, (void*)&data_arr_obj, &zErrMsg);
+    CheckRequestOk(sql_res,"sql error to request answer table:",zErrMsg);
+    DEBUG(std::cout<<"columns count="<<json_array_size(columns_arr_obj)<<endl;)
+    json_object_set(root,"data",data_arr_obj);
+    json_object_set_new(root,"amount",json_integer(json_array_size(data_arr_obj)));
+    DEBUG(std::cout<<"data row count="<<json_array_size(data_arr_obj)<<endl;)
+    *answ=json_dumps(root,JSON_REAL_PRECISION(3)|JSON_INDENT(2));
+    json_decref(data_arr_obj);
     return 0;
 }
 ///*******************************************************************************************************************
@@ -435,7 +450,7 @@ int ReceiveNewRow5DB_CB(void*json_ptr,int col_n,char** fields,char**col_names) {
     for(auto i=0; i<col_n; i++ ) {
         json_array_append_new(jrow_arr,json_string(fields[i]));
     }
-    json_array_append((json_t*)json_ptr,jrow_arr);
+    json_array_append(*(json_t**)json_ptr,jrow_arr);
     json_decref(jrow_arr);
     return 0;
 }

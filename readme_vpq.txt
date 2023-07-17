@@ -46,4 +46,6 @@ request for data
  "amount":100,
  "columns":["date","WF_counter","PP_capacity_avg"] 
  }
- {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter"]} 
+ {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":5,"columns":["id","date","WF_counter"]} 
+ {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":5,"columns":["id","pussy","date","WF_counter","huj"]}
+{"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter"],"data":[[1681596447,15000],[1681596447,15000],...[1681596447,15000]]} 
