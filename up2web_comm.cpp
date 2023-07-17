@@ -347,6 +347,7 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
     int dir_up1_down0=0;
     int row_amount;
     char *zErrMsg;
+
     if((str_val=json_string_value(json_object_get(root,"direction")))!=NULL){
         if(!strncmp(str_val,"up",2))dir_up1_down0=1;
         DEBUG(std::cout<<"direction="<<dir_up1_down0<<std::endl;)
@@ -359,18 +360,22 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         DEBUG(std::cout<<"amount="<<row_amount<<std::endl;)
     }else row_amount=DEFAULT_REQUESTED_ROW_AMOUNT;///magic number;). May be better to not allow default number?
     json_t* columns_arr_obj;
+    std::string columns_sql_str="";
     if((columns_arr_obj=json_object_get(root,"columns"))!=NULL){
         size_t idx;
         json_t* arr_elem_obj;
         std::string arr_elem;
-        int columns_size=json_array_size(columns_arr_obj);
-        json_array_foreach(columns_arr_obj,idx,arr_elem_obj){
-            if(IsInColumns(arr_elem=json_string_value(arr_elem_obj)))
-                std::cout<<"      element "<<idx<<"="<<arr_elem<<endl;
+        char colon=' ';
+        json_array_foreach(columns_arr_obj,idx,arr_elem_obj) {
+            if(IsInColumns(arr_elem=json_string_value(arr_elem_obj))) {
+                columns_sql_str+=colon;
+                columns_sql_str+=arr_elem;
+                colon=',';
+            }
         }
-        DEBUG(std::cout<<"column numbers:"<<columns_size<<endl;)
-
     }else return -2;
+    if(columns_sql_str=="")return -2;
+    DEBUG(std::cout<<"   colomns string="<<columns_sql_str<<std::endl;)
     if((str_val=json_string_value(json_object_get(root,"base")))==NULL)return -1;
     switch(str_hash_vol(str_val)) {
     case str_hash("last"):
@@ -413,7 +418,10 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     }
-    std::cout<<"Received base:"<<str_val<<std::endl;
+    int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
+    if(last_id<0)last_id=0;
+    std::string sql_req="SELECT " +columns_sql_str+" FROM logtable WHERE id BETWEEN " + std::to_string(base_id) + " AND " + std::to_string(last_id) +" ORDER BY id ACS";
+    DEBUG(std::cout<<"SQL  request>>"<<sql_req<<"<<"<<endl;)
     return 0;
 }
 ///*******************************************************************************************************************
