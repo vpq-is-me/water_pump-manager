@@ -48,5 +48,5 @@ request for data
  }
  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter"]} 
  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter","tddd"]} 
-  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter","tdsdf"]}
+  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter","pussy"]}
  {"tag":3,"base":"counter","counter":60000}
