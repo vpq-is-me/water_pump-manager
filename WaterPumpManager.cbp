@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="WaterPumpManager" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/WaterPumpManager" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/WaterPumpManager" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-std=gnu++17" />
+			<Add option="-fexceptions" />
+			<Add directory="/usr/include/boost_1_78_0" />
+		</Compiler>
+		<Linker>
+			<Add option="-ljansson" />
+			<Add library="pthread" />
+			<Add library="dl" />
+			<Add directory="/usr/include/boost_1_78_0/stage/lib" />
+		</Linker>
+		<Unit filename="ble_messaging.cpp" />
+		<Unit filename="ble_messaging.h" />
+		<Unit filename="main.cpp" />
+		<Unit filename="main.h" />
+		<Unit filename="sqlite/sqlite3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="sqlite/sqlite3.h" />
+		<Unit filename="sqlite/sqlite3ext.h" />
+		<Unit filename="up2web_comm.cpp" />
+		<Unit filename="up2web_comm.h" />
+		<Extensions>
+			<debugger>
+				<remote_debugging target="Debug">
+					<options conn_type="0" additional_cmds="set follow-fork-mode child" />
+				</remote_debugging>
+			</debugger>
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
