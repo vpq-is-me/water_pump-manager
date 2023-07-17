@@ -16,7 +16,6 @@ void Up2webCommPrc(void);
 #define MAX_WEB_BUFFER_LENGTH 8192
 #define MAXLOGROWNUMS 1000000l //maximum size of database, magic number
 #define MAXLOG_TRUNCATE_THRESHOLD 100
-#define DBLOGCOLUMNNUM 6
 
 #define UP2WEB_SOCKET "/tmp/water_pump_socket.socket"
 

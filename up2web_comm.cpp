@@ -341,7 +341,7 @@ unsigned int str_hash_vol(char const*str,int max_len=256) {
 
 int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
     char const* str_val;
-    char sql[MAXSQLLENGTH];
+    std::string sql;
     int64_t base_id;
     int sql_res;
     int dir_up1_down0=0;
@@ -352,18 +352,18 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
         if(!strncmp(str_val,"up",2))dir_up1_down0=1;
         DEBUG(std::cout<<"direction="<<dir_up1_down0<<std::endl;)
     }
-    json_t* amount_obj;
+    json_auto_t* amount_obj;
     if((amount_obj=json_object_get(root,"amount"))!=NULL){
         row_amount=json_integer_value(amount_obj);
         if(row_amount<1)row_amount=1;
         if(row_amount>MAX_REQUESTED_ROW_AMOUNT)row_amount=MAX_REQUESTED_ROW_AMOUNT;
         DEBUG(std::cout<<"amount="<<row_amount<<std::endl;)
     }else row_amount=DEFAULT_REQUESTED_ROW_AMOUNT;///magic number;). May be better to not allow default number?
-    json_t* columns_arr_obj;
+    json_auto_t* columns_arr_obj;
     std::string columns_sql_str="";
     if((columns_arr_obj=json_object_get(root,"columns"))!=NULL){
         size_t idx;
-        json_t* arr_elem_obj;
+        json_auto_t* arr_elem_obj;
         std::string arr_elem;
         char colon=' ';
         json_array_foreach(columns_arr_obj,idx,arr_elem_obj) {
@@ -379,66 +379,64 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root) {
     if((str_val=json_string_value(json_object_get(root,"base")))==NULL)return -1;
     switch(str_hash_vol(str_val)) {
     case str_hash("last"):
-        snprintf(sql,MAXSQLLENGTH,"SELECT max(id) FROM logtable");
-        sql_res = sqlite3_exec(log_db, sql, &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
+        sql="SELECT max(id) FROM logtable";
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find 'last' id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"first ID="<<base_id<<std::endl;)
         break;
     case str_hash("first"):
-        snprintf(sql,MAXSQLLENGTH,"SELECT min(id) FROM logtable");
-        sql_res = sqlite3_exec(log_db, sql, &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
+        sql="SELECT min(id) FROM logtable";
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find 'first' id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"first ID="<<base_id<<std::endl;)
         break;
     case str_hash("id"):{
-        json_t* id_obj=json_object_get(root,"id");
+        json_auto_t* id_obj=json_object_get(root,"id");
         if(id_obj==NULL)return -1;
         json_int_t id=json_integer_value(id_obj);
-        snprintf(sql,MAXSQLLENGTH,"SELECT id FROM logtable WHERE id=%lld",id);
-        sql_res = sqlite3_exec(log_db, sql, &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
+        sql="SELECT id FROM logtable WHERE id=" + std::to_string(id);
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     case str_hash("date"):{
-        json_t* date_obj=json_object_get(root,"date");
+        json_auto_t* date_obj=json_object_get(root,"date");
         if(date_obj==NULL)return -1;
         json_int_t date=json_integer_value(date_obj);
-        snprintf(sql,MAXSQLLENGTH,"SELECT max(id) FROM logtable WHERE date<=%lld",date);
-        sql_res = sqlite3_exec(log_db, sql, &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
+        sql="SELECT max(id) FROM logtable WHERE date<=" + std::to_string(date);
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     case str_hash("counter"):{
-        json_t* WF_counter_obj=json_object_get(root,"counter");
+        json_auto_t* WF_counter_obj=json_object_get(root,"counter");
         if(WF_counter_obj==NULL)return -1;
         json_int_t WF_counter=json_integer_value(WF_counter_obj);
-        snprintf(sql,MAXSQLLENGTH,"SELECT max(id) FROM logtable WHERE WF_counter<=%lld",WF_counter);
-        sql_res = sqlite3_exec(log_db, sql, &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
+        sql="SELECT max(id) FROM logtable WHERE WF_counter<=" + std::to_string(WF_counter);
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     }
     int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
     if(last_id<0)last_id=0;
-    std::string sql_req="SELECT " +columns_sql_str+" FROM logtable WHERE id BETWEEN " + std::to_string(base_id) + " AND " + std::to_string(last_id) +" ORDER BY id ACS";
-    DEBUG(std::cout<<"SQL  request>>"<<sql_req<<"<<"<<endl;)
+    sql="SELECT " +columns_sql_str+" FROM logtable WHERE id BETWEEN " + std::to_string(base_id) + " AND " + std::to_string(last_id) +" ORDER BY id ACS";
+    sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
+    DEBUG(std::cout<<"SQL  request>>"<<sql<<"<<"<<endl;)
     return 0;
 }
 ///*******************************************************************************************************************
 tUp2Web_cl up2web;
 
 ///*******************************************************************************************************************
-int ReceiveNewRow5DB_CB(void*dist,int col_n,char** fields,char**col_names) {
-    if(col_n!=DBLOGCOLUMNNUM)return 1;
-    int64_t ID=atol(fields[0]);
-    for(auto i=1; i<col_n; i++ ) {
-        /*        if(i==TAGCOLUMN){
-                    int tag_num=atoi(fields[i]);
-                    if(tag_num>=TAG_MAX_NUM)tag_num=0;
-                    LogGrid->SetCellValue(0,i-1,tag_desc[tag_num]);
-                }
-                else LogGrid->SetCellValue(0,i-1,wxString::FromUTF8(fields[i]));*/
+int ReceiveNewRow5DB_CB(void*json_ptr,int col_n,char** fields,char**col_names) {
+    //if(col_n!=json_array_size(array))return 1;
+    json_t* jrow_arr=json_array();
+    for(auto i=0; i<col_n; i++ ) {
+        json_array_append_new(jrow_arr,json_string(fields[i]));
     }
+    json_array_append((json_t*)json_ptr,jrow_arr);
+    json_decref(jrow_arr);
     return 0;
 }
 ///*******************************************************************************************************************
