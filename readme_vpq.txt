@@ -47,5 +47,5 @@ request for data
  "columns":["date","WF_counter","PP_capacity_avg"] 
  }
  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter"]} 
- {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter"]} 
+ {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter","tddd"]} 
  {"tag":3,"base":"counter","counter":60000}
