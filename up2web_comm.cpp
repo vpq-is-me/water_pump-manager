@@ -135,6 +135,7 @@ void Up2webCommPrc(void) {
                     if(up2web.DB_ServeTableRequest(root,&answer))
                         std::cout<<"Received unsupported request"<<std::endl;
                     DEBUG(std::cout<<std::endl<<"answer:"<<std::endl<<answer<<std::endl;)
+                    write(client_fd,answer,strlen(answer));
                     free(answer);
                     break;}
                 default:
@@ -388,12 +389,14 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
         sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find 'last' id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"first ID="<<base_id<<std::endl;)
+        dir_up1_down0=0;//other direction have no sense
         break;
     case str_hash("first"):
         sql="SELECT min(id) FROM logtable";
         sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find 'first' id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"first ID="<<base_id<<std::endl;)
+        dir_up1_down0=1;//other direction have no sense
         break;
     case str_hash("id"):{
         json_t* id_obj=json_object_get(root,"id");
@@ -423,21 +426,26 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
         break;}
     }
-    json_t* data_arr_obj=json_array();//prepare array for answer from DB. This array will contain array of answer rows. Each row in their turn will also presented as array of values from DB in form of array of char[]
-
+    json_t* data_obj_arr_obj=json_object();//prepare object for answer from DB. This object will contain arrays of answer columns.
+    size_t idx;
+    json_t* arr_element_obj;///!!DON'T modify this after for()! We will use it later to count real amount of answer data!!
+    json_array_foreach(columns_arr_obj, idx,arr_element_obj){
+        json_object_set_new(data_obj_arr_obj,json_string_value(arr_element_obj),json_array());
+    }
     int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
     if(last_id<0)last_id=0;
     if(!dir_up1_down0)std::swap(base_id,last_id);
     sql="SELECT " +columns_sql_str+" FROM logtable WHERE id BETWEEN " + std::to_string(base_id) + " AND " + std::to_string(last_id) +" ORDER BY id ASC";
     DEBUG(std::cout<<"SQL  request>>"<<sql<<"<<"<<endl;)
-    sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveNewRow5DB_CB, (void*)&data_arr_obj, &zErrMsg);
+    sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveNewRow5DB_CB, (void*)&data_obj_arr_obj, &zErrMsg);
     CheckRequestOk(sql_res,"sql error to request answer table:",zErrMsg);
+    int real_amount=json_array_size(json_object_get(data_obj_arr_obj,json_string_value(arr_element_obj)));
     DEBUG(std::cout<<"columns count="<<json_array_size(columns_arr_obj)<<endl;)
-    json_object_set(root,"data",data_arr_obj);
-    json_object_set_new(root,"amount",json_integer(json_array_size(data_arr_obj)));
-    DEBUG(std::cout<<"data row count="<<json_array_size(data_arr_obj)<<endl;)
+    json_object_set(root,"data",data_obj_arr_obj);
+    json_object_set_new(root,"amount",json_integer(real_amount));
+    DEBUG(std::cout<<"data row count="<<real_amount<<endl;)
     *answ=json_dumps(root,JSON_REAL_PRECISION(3)|JSON_INDENT(2));
-    json_decref(data_arr_obj);
+    json_decref(data_obj_arr_obj);
     return 0;
 }
 ///*******************************************************************************************************************
@@ -446,12 +454,11 @@ tUp2Web_cl up2web;
 ///*******************************************************************************************************************
 int ReceiveNewRow5DB_CB(void*json_ptr,int col_n,char** fields,char**col_names) {
     //if(col_n!=json_array_size(array))return 1;
-    json_t* jrow_arr=json_array();
+    json_t* col_arr_obj;
     for(auto i=0; i<col_n; i++ ) {
-        json_array_append_new(jrow_arr,json_string(fields[i]));
+        col_arr_obj=json_object_get(*(json_t**)json_ptr,col_names[i]);
+        json_array_append_new(col_arr_obj,json_string(fields[i]));
     }
-    json_array_append(*(json_t**)json_ptr,jrow_arr);
-    json_decref(jrow_arr);
     return 0;
 }
 ///*******************************************************************************************************************

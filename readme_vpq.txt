@@ -48,4 +48,5 @@ request for data
  }
  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":5,"columns":["id","date","WF_counter"]} 
  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":5,"columns":["id","pussy","date","WF_counter","huj"]}
-{"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter"],"data":[[1681596447,15000],[1681596447,15000],...[1681596447,15000]]} 
+ answer:
+{"tag":3,"base":"date","date":1681596447,"direction":"down","amount":75,"columns":["date","WF_counter"],"data":{"date":[1681596447,1681596448,...,1681596478],"WF_counter":[15000,15001,...,15065]}} 
