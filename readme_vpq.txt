@@ -46,6 +46,7 @@ request for data
  "amount":100,
  "columns":["date","WF_counter","PP_capacity_avg"] 
  }
+ 
  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":5,"columns":["id","date","WF_counter"]} 
  {"tag":3,"base":"date","date":1681596447,"direction":"down","amount":5,"columns":["id","pussy","date","WF_counter","huj"]}
  answer:
