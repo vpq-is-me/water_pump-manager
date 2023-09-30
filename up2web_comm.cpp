@@ -217,16 +217,16 @@ int tUp2Web_cl::Serialize(char*buf) {
     json_t *root;
     json_error_t jerror;
     root=json_object();
-    json_object_set_new(root,"acc_couter",json_integer(smem->acc_counter));
-    json_object_set_new(root,"pump_capacity",json_real(smem->pump_capacity));
-    json_object_set_new(root,"pump_capacity_avg",json_real(smem->pump_capacity_avg));
-    json_object_set_new(root,"exp_tank_vol",json_real(smem->exp_tank_vol));
+    json_object_set_new(root,"WF_counter",json_integer(smem->acc_counter));
+    json_object_set_new(root,"PP_capacity",json_real(smem->pump_capacity));
+    json_object_set_new(root,"PP_capacity_avg",json_real(smem->pump_capacity_avg));
+    json_object_set_new(root,"TK_volume",json_real(smem->exp_tank_vol));
     json_object_set_new(root,"alarms",json_integer(smem->alarms));
     json_object_set_new(root,"last_time",json_string(time_str_buf));
-    json_object_set_new(root,"pp_work_between_pulses",json_real((float)smem->pp_timeouts[PP_ON_ACC]/100));
-    json_object_set_new(root,"pp_longest_work",json_real((float)smem->pp_timeouts[PP_RUN_MAX]/100));
-    json_object_set_new(root,"pp_shortest_work",json_real((float)smem->pp_timeouts[PP_RUN_MIN]/100));
-    json_object_set_new(root,"pp_working_at_pulse",json_real((float)smem->pp_timeouts[PP_RUN_AT_PULSE]/100));
+    json_object_set_new(root,"PP_ON_ACC",json_real((float)smem->pp_timeouts[PP_ON_ACC]/100));
+    json_object_set_new(root,"PP_RUN_MAX",json_real((float)smem->pp_timeouts[PP_RUN_MAX]/100));
+    json_object_set_new(root,"PP_RUN_MIN",json_real((float)smem->pp_timeouts[PP_RUN_MIN]/100));
+    json_object_set_new(root,"PP_RUN_AT_PULSE",json_real((float)smem->pp_timeouts[PP_RUN_AT_PULSE]/100));
     len=json_dumpb(root,buf,MAX_WEB_BUFFER_LENGTH,JSON_REAL_PRECISION(3));
     json_decref(root);
     return len;
@@ -432,6 +432,7 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     json_array_foreach(columns_arr_obj, idx,arr_element_obj){
         json_object_set_new(data_obj_arr_obj,json_string_value(arr_element_obj),json_array());
     }
+    row_amount--;//because databese return data including boundaries and gives result one row longer
     int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
     if(last_id<0)last_id=0;
     if(!dir_up1_down0)std::swap(base_id,last_id);
