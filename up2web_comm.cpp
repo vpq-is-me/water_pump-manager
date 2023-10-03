@@ -136,7 +136,7 @@ void Up2webCommPrc(void) {//chiled process
                         std::cout<<"Received unsupported request"<<std::endl;
                         const char err_answer[]=R"({"tag":3,"error":"error"})";
                         write(client_fd,err_answer,strlen(err_answer));
-                        DEBUG(std::cout<<std::endl<<"answer:"<<std::endl<<err_answer<<std::endl;)
+                        DEBUG(std::cout<<std::endl<<"Answer:"<<std::endl<<err_answer<<std::endl;)
 //                      json_object_clear(root);???
                         break;
                     }
