@@ -50,7 +50,7 @@ void SigStopHandlerPreset(void) {
 
 
 ///*******************************************************************************************************************
-void Up2webCommPrc(void) {
+void Up2webCommPrc(void) {//chiled process
     SigStopHandlerPreset();
     unlink(UP2WEB_SOCKET);// unbind if previously not properly terminated
     /**< create socket */
@@ -132,11 +132,20 @@ void Up2webCommPrc(void) {
                 }
                 case TAG_DB_REQUEST:{
                     char *answer=nullptr;
-                    if(up2web.DB_ServeTableRequest(root,&answer))
+                    if(up2web.DB_ServeTableRequest(root,&answer)){
                         std::cout<<"Received unsupported request"<<std::endl;
+                        const char err_answer[]=R"({"tag":3,"error":"error"})";
+                        write(client_fd,err_answer,strlen(err_answer));
+                        DEBUG(std::cout<<std::endl<<"answer:"<<std::endl<<err_answer<<std::endl;)
+//                      json_object_clear(root);???
+                        break;
+                    }
                     DEBUG(std::cout<<std::endl<<"answer:"<<std::endl<<answer<<std::endl;)
-                    write(client_fd,answer,strlen(answer));
-                    free(answer);
+                    if(answer!=NULL){
+                        write(client_fd,answer,strlen(answer));
+                        free(answer);
+                    }
+//                    json_object_clear(root);???
                     break;}
                 default:
                     std::cout<<"Received unknown tag No:"<<tag<<std::endl;
@@ -402,10 +411,12 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
         json_t* id_obj=json_object_get(root,"id");
         if(id_obj==NULL)return -1;
         json_int_t id=json_integer_value(id_obj);
+        DEBUG(std::cout<<"intended ID for query from DB="<<id<<std::endl;)
         sql="SELECT id FROM logtable WHERE id=" + std::to_string(id);
         sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
-        DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
+        DEBUG(std::cout<<" actual requested ID="<<base_id<<std::endl;)
+        if(base_id!=id)row_amount=0;///**<-if we reach boundary somtimes DB gives wrong result in sequential fast request
         break;}
     case str_hash("date"):{
         json_t* date_obj=json_object_get(root,"date");//get borrowed reference, so not required to call 'json_decref()'
@@ -447,6 +458,7 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     DEBUG(std::cout<<"data row count="<<real_amount<<endl;)
     *answ=json_dumps(root,JSON_REAL_PRECISION(3)|JSON_INDENT(2));
     json_decref(data_obj_arr_obj);
+    //!!! It is required??? -> json_object_clear(root);
     return 0;
 }
 ///*******************************************************************************************************************

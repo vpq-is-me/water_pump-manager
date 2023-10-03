@@ -2,9 +2,9 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="Debug" />
-	<File name="ble_messaging.cpp" open="0" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="sqlite/sqlite3.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="268" topLine="0" />
+			<Cursor1 position="8127062" topLine="227943" />
 		</Cursor>
 	</File>
 	<File name="main.h" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
@@ -12,39 +12,42 @@
 			<Cursor1 position="211" topLine="0" />
 		</Cursor>
 	</File>
-	<File name="sqlite/sqlite3.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="6435112" topLine="175927" />
-		</Cursor>
-	</File>
 	<File name="main.cpp" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="3221" topLine="96" />
+			<Cursor1 position="3543" topLine="107" />
 		</Cursor>
-	</File>
-	<File name="up2web_comm.cpp" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="19624" topLine="355" />
-		</Cursor>
-		<Folding>
-			<Collapse line="28" />
-			<Collapse line="35" />
-			<Collapse line="172" />
-			<Collapse line="178" />
-			<Collapse line="184" />
-			<Collapse line="190" />
-			<Collapse line="199" />
-			<Collapse line="239" />
-		</Folding>
 	</File>
 	<File name="ble_messaging.h" open="0" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
 			<Cursor1 position="2775" topLine="39" />
 		</Cursor>
 	</File>
+	<File name="ble_messaging.cpp" open="1" top="0" tabpos="5" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="2643" topLine="49" />
+		</Cursor>
+	</File>
+	<File name="up2web_comm.cpp" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="5580" topLine="128" />
+		</Cursor>
+		<Folding>
+			<Collapse line="35" />
+			<Collapse line="160" />
+			<Collapse line="167" />
+			<Collapse line="173" />
+			<Collapse line="181" />
+			<Collapse line="187" />
+			<Collapse line="193" />
+			<Collapse line="199" />
+			<Collapse line="208" />
+			<Collapse line="248" />
+			<Collapse line="283" />
+		</Folding>
+	</File>
 	<File name="up2web_comm.h" open="1" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="614" topLine="15" />
+			<Cursor1 position="614" topLine="36" />
 		</Cursor>
 	</File>
 </CodeBlocks_layout_file>
