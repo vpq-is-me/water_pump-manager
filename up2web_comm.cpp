@@ -353,9 +353,9 @@ unsigned int str_hash_vol(char const*str,int max_len=256) {
 
 /**<
 NOTE: for request from database we have to remove all rows with same WF counter. Which occurs due to appering any alarm.
-I.e. when alarm arise new row inserted to DB, but for pump performance assumption this duplicate row are extra
+I.e. when alarm arise new row inserted to DB, but for pump performance evaluation this duplicate row are waste
 From group of rows with same WF couter reading we have to select earliest row, i.e. earliest date/time or lowest id.
-So despite request we first of all select rows with mandatory columns 'id' and 'wf_counter and from result select only required columns
+So despite request fields we first of all select rows with mandatory columns 'MIN(id)' and 'wf_counter and from result select only required columns
  */
 int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     char const* str_val;
@@ -393,7 +393,7 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
                 columns_sql_str_group+=colon;
                 columns_sql_str+=arr_elem;
                 columns_sql_str_group+=arr_elem;
-                if(!arr_elem.compare(0,10,"WF_counter")){//don't add it later
+                if(!arr_elem.compare(0,10,"WF_counter")){//don't add it later again. See NOTE before function body
                     WF_counter_was=true;
                     }
                 colon=',';
@@ -437,7 +437,10 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
         json_t* date_obj=json_object_get(root,"date");//get borrowed reference, so not required to call 'json_decref()'
         if(date_obj==NULL)return -1;
         json_int_t date=json_integer_value(date_obj);
-        sql="SELECT max(id) FROM logtable WHERE date<=" + std::to_string(date);
+        if(dir_up1_down0)
+            sql="SELECT min(id) FROM logtable WHERE date>=" + std::to_string(date);
+        else
+            sql="SELECT max(id) FROM logtable WHERE date<=" + std::to_string(date);
         sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
@@ -446,7 +449,10 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
         json_t* WF_counter_obj=json_object_get(root,"counter");
         if(WF_counter_obj==NULL)return -1;
         json_int_t WF_counter=json_integer_value(WF_counter_obj);
-        sql="SELECT max(id) FROM logtable WHERE WF_counter<=" + std::to_string(WF_counter);
+        if(dir_up1_down0)
+            sql="SELECT min(id) FROM logtable WHERE WF_counter>=" + std::to_string(WF_counter);
+        else
+            sql="SELECT max(id) FROM logtable WHERE WF_counter<=" + std::to_string(WF_counter);
         sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
         CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
         DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
@@ -458,11 +464,10 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     json_array_foreach(columns_arr_obj, idx,arr_element_obj){
         json_object_set_new(data_obj_arr_obj,json_string_value(arr_element_obj),json_array());
     }
-//!!!    row_amount--;//because databese return data including boundaries and gives result one row longer
-//    int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
-//    if(last_id<0)last_id=0;
-//    if(!dir_up1_down0)std::swap(base_id,last_id);
-    sql="SELECT " +columns_sql_str_group+" FROM logtable WHERE id <= "+ std::to_string(base_id) + " GROUP BY (WF_counter) ORDER BY id DESC LIMIT " + std::to_string(row_amount);
+    if(dir_up1_down0)
+        sql="SELECT " +columns_sql_str_group+" FROM logtable WHERE id >= "+ std::to_string(base_id) + " GROUP BY (WF_counter) ORDER BY id ASC LIMIT " + std::to_string(row_amount);
+    else
+        sql="SELECT " +columns_sql_str_group+" FROM logtable WHERE id <= "+ std::to_string(base_id) + " GROUP BY (WF_counter) ORDER BY id DESC LIMIT " + std::to_string(row_amount);
     sql= "SELECT " +columns_sql_str+" FROM (" + sql + ") AS desc_res ORDER BY WF_counter ASC";
     DEBUG(std::cout<<"SQL  request>>"<<sql<<"<<"<<endl;)
     sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveNewRow5DB_CB, (void*)&data_obj_arr_obj, &zErrMsg);
