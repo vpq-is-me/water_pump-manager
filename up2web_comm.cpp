@@ -351,7 +351,12 @@ unsigned int str_hash_vol(char const*str,int max_len=256) {
     return res;
 }
 
-
+/**<
+NOTE: for request from database we have to remove all rows with same WF counter. Which occurs due to appering any alarm.
+I.e. when alarm arise new row inserted to DB, but for pump performance assumption this duplicate row are extra
+From group of rows with same WF couter reading we have to select earliest row, i.e. earliest date/time or lowest id.
+So despite request we first of all select rows with mandatory columns 'id' and 'wf_counter and from result select only required columns
+ */
 int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     char const* str_val;
     std::string sql;
@@ -374,20 +379,30 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     }else row_amount=DEFAULT_REQUESTED_ROW_AMOUNT;///magic number;). May be better to not allow default number?
     json_auto_t* columns_arr_obj;
     std::string columns_sql_str="";
+    std::string columns_sql_str_group="";
     if((columns_arr_obj=json_object_get(root,"columns"))!=NULL){
         size_t idx;
         json_t* arr_elem_obj;
         std::string arr_elem;
         char colon=' ';
         idx=0;
+        bool WF_counter_was=false;
         while(idx<json_array_size(columns_arr_obj) && (arr_elem_obj=json_array_get(columns_arr_obj,idx))){//arr_elem_obj is 'borrowed' reference (see json library), so it is not required to call 'json_decref()'
             if(IsInColumns(arr_elem=json_string_value(arr_elem_obj))) {
                 columns_sql_str+=colon;
+                columns_sql_str_group+=colon;
                 columns_sql_str+=arr_elem;
+                columns_sql_str_group+=arr_elem;
+                if(!arr_elem.compare(0,10,"WF_counter")){//don't add it later
+                    WF_counter_was=true;
+                    }
                 colon=',';
                 idx++;
             }else json_array_remove(columns_arr_obj,idx);//remove this unknown colunm name from array, because this array would be send back with actual memebers
         }
+//        columns_sql_str_group+=", WF_counter, min(id)";
+        if(!WF_counter_was)columns_sql_str_group+=", WF_counter";
+        columns_sql_str_group+=", MIN(id)";
     }else return -2;
     if(columns_sql_str=="")return -2;
     DEBUG(std::cout<<"   colomns string="<<columns_sql_str<<std::endl;)
@@ -443,11 +458,12 @@ int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
     json_array_foreach(columns_arr_obj, idx,arr_element_obj){
         json_object_set_new(data_obj_arr_obj,json_string_value(arr_element_obj),json_array());
     }
-    row_amount--;//because databese return data including boundaries and gives result one row longer
-    int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
-    if(last_id<0)last_id=0;
-    if(!dir_up1_down0)std::swap(base_id,last_id);
-    sql="SELECT " +columns_sql_str+" FROM logtable WHERE id BETWEEN " + std::to_string(base_id) + " AND " + std::to_string(last_id) +" ORDER BY id ASC";
+//!!!    row_amount--;//because databese return data including boundaries and gives result one row longer
+//    int64_t last_id=base_id+(dir_up1_down0?row_amount:(-row_amount));
+//    if(last_id<0)last_id=0;
+//    if(!dir_up1_down0)std::swap(base_id,last_id);
+    sql="SELECT " +columns_sql_str_group+" FROM logtable WHERE id <= "+ std::to_string(base_id) + " GROUP BY (WF_counter) ORDER BY id DESC LIMIT " + std::to_string(row_amount);
+    sql= "SELECT " +columns_sql_str+" FROM (" + sql + ") AS desc_res ORDER BY WF_counter ASC";
     DEBUG(std::cout<<"SQL  request>>"<<sql<<"<<"<<endl;)
     sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveNewRow5DB_CB, (void*)&data_obj_arr_obj, &zErrMsg);
     CheckRequestOk(sql_res,"sql error to request answer table:",zErrMsg);
