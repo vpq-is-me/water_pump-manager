@@ -120,35 +120,52 @@ void Up2webCommPrc(void) {//chiled process
                 switch(tag) {
                 case TAG_REQSNAP:
                     len=up2web.Serialize(buffer);
-                    std::cout<<"send current data snap with length:"<<len<<std::endl;
+                    cout<<"send current data snap with length:"<<len<<endl;
                     write(client_fd,buffer,len);
                     break;
                 case TAG_CMDRESETALARM: {
                     uint8_t data_arr[5]= {WP_PARAM_I_ALARMS,0,0,0,0}; //send distanation command 'tag' and command contents 4 bytes length
                     int er=BLE_send(WATER_PUMP_OP_SET_PARAM,5,data_arr);
-                    if(er)std::cout<<"BLE_send() error="<<er<<std::endl;
-                    std::cout<<"Received 'Reset Alarm command'"<<std::endl;
+                    if(er)cout<<"BLE_send() error="<<er<<endl;
+                    cout<<"Received 'Reset Alarm command'"<<endl;
                     break;
                 }
                 case TAG_DB_REQUEST:{
                     char *answer=nullptr;
                     if(up2web.DB_ServeTableRequest(root,&answer)){
-                        std::cout<<"Received unsupported request"<<std::endl;
+                        cout<<"Received unsupported request"<<endl;
                         const char err_answer[]=R"({"tag":3,"error":"error"})";
                         write(client_fd,err_answer,strlen(err_answer));
-                        DEBUG(std::cout<<std::endl<<"Answer:"<<std::endl<<err_answer<<std::endl;)
+                        DEBUG(cout<<endl<<"Answer:"<<endl<<err_answer<<endl;)
 //                      json_object_clear(root);???
                         break;
                     }
-                    DEBUG(std::cout<<std::endl<<"answer:"<<std::endl<<answer<<std::endl;)
                     if(answer!=NULL){
+                        DEBUG(cout<<endl<<"answer:"<<endl<<answer<<endl;)
+                        write(client_fd,answer,strlen(answer));
+                        free(answer);
+                    }
+//                    json_object_clear(root);???
+                    break;}
+                case TAG_DB_ALARMS:{
+                    char *answer=nullptr;
+                    if(up2web.DB_ServeAlarmsRequest(root,&answer)){
+                        DEBUG(cout<<"Received unsupported request"<<endl;)
+                        const char err_answer[]=R"({"tag":4,"error":"error"})";
+                        write(client_fd,err_answer,strlen(err_answer));
+                        DEBUG(cout<<endl<<"Answer:"<<endl<<err_answer<<endl;)
+//                      json_object_clear(root);???
+                        break;
+                    }
+                    if(answer!=NULL){
+                        DEBUG(cout<<endl<<"answer:"<<endl<<answer<<endl;)
                         write(client_fd,answer,strlen(answer));
                         free(answer);
                     }
 //                    json_object_clear(root);???
                     break;}
                 default:
-                    std::cout<<"Received unknown tag No:"<<tag<<std::endl;
+                    cout<<"Received unknown tag No:"<<tag<<endl;
                     break;
                 }
             }
@@ -224,7 +241,7 @@ int tUp2Web_cl::Serialize(char*buf) {
     strftime(time_str_buf,sizeof(time_str_buf),"%T",time_st);
 
     json_t *root;
-    json_error_t jerror;
+ //   json_error_t jerror;
     root=json_object();
     json_object_set_new(root,"WF_counter",json_integer(smem->acc_counter));
     json_object_set_new(root,"PP_capacity",json_real(smem->pump_capacity));
@@ -244,7 +261,7 @@ int tUp2Web_cl::Serialize(char*buf) {
 /**< This vector used later to check column presence in database
 drawback of this - we have to check that same name declared here and at the moment of DB creation*/
 #warning TODO (vpq@list.ru#1#): 3 time declared same columns of database
-const std::vector <std::string> tUp2Web_cl::DB_columns_arr={"id","date","WF_counter","PP_capacity","PP_capacity_avg","TK_volume","PP_ON_ACC","PP_RUN_MAX","PP_RUN_MIN","PP_RUN_AT_PULSE","alarms"};
+const vector <string> tUp2Web_cl::DB_columns_arr={"id","date","WF_counter","PP_capacity","PP_capacity_avg","TK_volume","PP_ON_ACC","PP_RUN_MAX","PP_RUN_MIN","PP_RUN_AT_PULSE","alarms"};
 
 void tUp2Web_cl::DB_Open(void) {
     int res;
@@ -350,7 +367,114 @@ unsigned int str_hash_vol(char const*str,int max_len=256) {
     }
     return res;
 }
+///*******************************************************************************************************************
+int tUp2Web_cl::DBreqGetAmount(json_t*root) {
+    int res=0;
+    if((res=json_integer_value(json_object_get(root,"amount")))!=0){
+        if(res>MAX_REQUESTED_ROW_AMOUNT)res=MAX_REQUESTED_ROW_AMOUNT;
+        DEBUG(cout<<"amount="<<res<<endl;)
+    }
+    return res;
+}
+///*******************************************************************************************************************
+int tUp2Web_cl::DBreqGetDirection(json_t *root){
+    int res=0;
+    char const* str_val;
+    if((str_val=json_string_value(json_object_get(root,"direction")))!=NULL){
+        if(!strncmp(str_val,"up",2))res=1;
+        DEBUG(cout<<"direction="<<res<<endl;)
+    }
+    return res;
+}
+///*******************************************************************************************************************
+int64_t tUp2Web_cl::DBreqGetBaseID(json_t*root,int& direction,int& amount){
+    char const* str_val;
+    string sql;
+    int sql_res;
+    char *zErrMsg;
+    int64_t res=-1;
 
+    if((str_val=json_string_value(json_object_get(root,"base")))==NULL)return -1;
+    switch(str_hash_vol(str_val)) {
+    case str_hash("last"):
+        sql="SELECT max(id) FROM logtable";
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&res, &zErrMsg);
+        CheckRequestOk(sql_res,"error to find 'last' id for DB_ServeTableRequest:",zErrMsg);
+        DEBUG(cout<<"first ID="<<res<<endl;)
+        direction=0;//other direction have no sense
+        break;
+    case str_hash("first"):
+        sql="SELECT min(id) FROM logtable";
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&res, &zErrMsg);
+        CheckRequestOk(sql_res,"error to find 'first' id for DB_ServeTableRequest:",zErrMsg);
+        DEBUG(cout<<"first ID="<<res<<endl;)
+        direction=1;//other direction have no sense
+        break;
+    case str_hash("id"):{
+        json_t* id_obj=json_object_get(root,"id");
+        if(id_obj==NULL)return -1;
+        json_int_t id=json_integer_value(id_obj);
+        DEBUG(cout<<"intended ID for query from DB="<<id<<endl;)
+        sql="SELECT id FROM logtable WHERE id=" + std::to_string(id);
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&res, &zErrMsg);
+        CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
+        DEBUG(cout<<" actual requested ID="<<res<<endl;)
+        if(res!=id)amount=0;///**<-if we reach boundary somtimes DB gives wrong result in sequential fast request
+        break;}
+    case str_hash("date"):{
+        json_t* date_obj=json_object_get(root,"date");//get borrowed reference, so not required to call 'json_decref()'
+        if(date_obj==NULL)return -1;
+        json_int_t date=json_integer_value(date_obj);
+        if(direction)
+            sql="SELECT min(id) FROM logtable WHERE date>=" + std::to_string(date);
+        else
+            sql="SELECT max(id) FROM logtable WHERE date<=" + std::to_string(date);
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&res, &zErrMsg);
+        CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
+        DEBUG(cout<<"requested ID="<<res<<endl;)
+        break;}
+    case str_hash("counter"):{
+        json_t* WF_counter_obj=json_object_get(root,"counter");
+        if(WF_counter_obj==NULL)return -1;
+        json_int_t WF_counter=json_integer_value(WF_counter_obj);
+        if(direction)
+            sql="SELECT min(id) FROM logtable WHERE WF_counter>=" + std::to_string(WF_counter);
+        else
+            sql="SELECT max(id) FROM logtable WHERE WF_counter<=" + std::to_string(WF_counter);
+        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&res, &zErrMsg);
+        CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
+        DEBUG(cout<<"requested ID="<<res<<endl;)
+        break;}
+    }
+    return res;
+}
+///*******************************************************************************************************************
+int tUp2Web_cl::DBreqRetriveData(json_t *root,string fields,string sql,char**answ){
+    int js_res;
+    DEBUG(cout<<"SQL  request>>"<<sql<<"<<"<<endl;)
+    char *zErrMsg;
+    json_t* data_obj_arr_obj=json_object();//prepare object for answer from DB. This object will contain arrays of answer's columns.
+    string::size_type b=0,e=0;
+    string val_name;///!!DON'T modify this after do-while()! We will use it later to count real amount of answer data!!
+    do {
+        e=fields.find(",",b);
+        val_name=fields.substr(b,e-b);
+        val_name.erase(val_name.find_last_not_of(' ')+1); //suffixing spaces
+        val_name.erase(0, val_name.find_first_not_of(' ')); //prefixing spaces
+        js_res=json_object_set_new(data_obj_arr_obj,val_name.c_str(),json_array());
+        b=e+1;
+    } while (e!=string::npos);
+    int sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveNewRow5DB_CB, (void*)&data_obj_arr_obj, &zErrMsg);
+    CheckRequestOk(sql_res,"sql error to request answer table:",zErrMsg);
+    int real_amount=json_array_size(json_object_get(data_obj_arr_obj,  val_name.c_str()));
+    js_res=json_object_set(root,"data",data_obj_arr_obj);
+    js_res=json_object_set_new(root,"amount",json_integer(real_amount));
+    DEBUG(cout<<"data row count="<<real_amount<<endl;)
+    *answ=json_dumps(root,JSON_REAL_PRECISION(3)|JSON_INDENT(2));
+    json_decref(data_obj_arr_obj);
+    //!!! It is required??? -> json_object_clear(root);
+    return 0;
+}
 /**<
 NOTE: for request from database we have to remove all rows with same WF counter. Which occurs due to appering any alarm.
 I.e. when alarm arise new row inserted to DB, but for pump performance evaluation this duplicate row are waste
@@ -358,129 +482,78 @@ From group of rows with same WF couter reading we have to select earliest row, i
 So despite request fields we first of all select rows with mandatory columns 'MIN(id)' and 'wf_counter and from result select only required columns
  */
 int tUp2Web_cl::DB_ServeTableRequest(json_t* root,char**answ) {
-    char const* str_val;
-    std::string sql;
-    int64_t base_id;
-    int sql_res;
-    int dir_up1_down0=0;
-    int row_amount;
-    char *zErrMsg;
-
-    if((str_val=json_string_value(json_object_get(root,"direction")))!=NULL){
-        if(!strncmp(str_val,"up",2))dir_up1_down0=1;
-        DEBUG(std::cout<<"direction="<<dir_up1_down0<<std::endl;)
-    }
-    json_auto_t* amount_obj;
-    if((amount_obj=json_object_get(root,"amount"))!=NULL){
-        row_amount=json_integer_value(amount_obj);
-        if(row_amount<1)row_amount=1;
-        if(row_amount>MAX_REQUESTED_ROW_AMOUNT)row_amount=MAX_REQUESTED_ROW_AMOUNT;
-        DEBUG(std::cout<<"amount="<<row_amount<<std::endl;)
-    }else row_amount=DEFAULT_REQUESTED_ROW_AMOUNT;///magic number;). May be better to not allow default number?
+    string sql;
+    //**
+    int dir_up1_down0=DBreqGetDirection(root);
+    int row_amount=DBreqGetAmount(root);
+    //NN. Pick up requested collumns. We'll prepare 2 strings (actually 'values' list in sql querry)
+    //1 - for final answer, another will always consist 'WF_counter' to exclude rows wich stored in DB due to
+    //occuring any alarm. By checking same value of 'WF_counter' it is possible to return only values
+    //concerning water consumption/pump behaviour inself
     json_auto_t* columns_arr_obj;
-    std::string columns_sql_str="";
-    std::string columns_sql_str_group="";
+    string columns_sql_str="";
+    string columns_sql_str_group;
     if((columns_arr_obj=json_object_get(root,"columns"))!=NULL){
         size_t idx;
         json_t* arr_elem_obj;
-        std::string arr_elem;
+        string arr_elem;
         char colon=' ';
         idx=0;
         bool WF_counter_was=false;
         while(idx<json_array_size(columns_arr_obj) && (arr_elem_obj=json_array_get(columns_arr_obj,idx))){//arr_elem_obj is 'borrowed' reference (see json library), so it is not required to call 'json_decref()'
             if(IsInColumns(arr_elem=json_string_value(arr_elem_obj))) {
                 columns_sql_str+=colon;
-                columns_sql_str_group+=colon;
                 columns_sql_str+=arr_elem;
-                columns_sql_str_group+=arr_elem;
                 if(!arr_elem.compare(0,10,"WF_counter")){//don't add it later again. See NOTE before function body
                     WF_counter_was=true;
-                    }
+                }
                 colon=',';
                 idx++;
             }else json_array_remove(columns_arr_obj,idx);//remove this unknown colunm name from array, because this array would be send back with actual memebers
         }
-//        columns_sql_str_group+=", WF_counter, min(id)";
+        columns_sql_str_group=columns_sql_str;
         if(!WF_counter_was)columns_sql_str_group+=", WF_counter";
         columns_sql_str_group+=", MIN(id)";
     }else return -2;
     if(columns_sql_str=="")return -2;
-    DEBUG(std::cout<<"   colomns string="<<columns_sql_str<<std::endl;)
-    if((str_val=json_string_value(json_object_get(root,"base")))==NULL)return -1;
-    switch(str_hash_vol(str_val)) {
-    case str_hash("last"):
-        sql="SELECT max(id) FROM logtable";
-        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
-        CheckRequestOk(sql_res,"error to find 'last' id for DB_ServeTableRequest:",zErrMsg);
-        DEBUG(std::cout<<"first ID="<<base_id<<std::endl;)
-        dir_up1_down0=0;//other direction have no sense
-        break;
-    case str_hash("first"):
-        sql="SELECT min(id) FROM logtable";
-        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
-        CheckRequestOk(sql_res,"error to find 'first' id for DB_ServeTableRequest:",zErrMsg);
-        DEBUG(std::cout<<"first ID="<<base_id<<std::endl;)
-        dir_up1_down0=1;//other direction have no sense
-        break;
-    case str_hash("id"):{
-        json_t* id_obj=json_object_get(root,"id");
-        if(id_obj==NULL)return -1;
-        json_int_t id=json_integer_value(id_obj);
-        DEBUG(std::cout<<"intended ID for query from DB="<<id<<std::endl;)
-        sql="SELECT id FROM logtable WHERE id=" + std::to_string(id);
-        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
-        CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
-        DEBUG(std::cout<<" actual requested ID="<<base_id<<std::endl;)
-        if(base_id!=id)row_amount=0;///**<-if we reach boundary somtimes DB gives wrong result in sequential fast request
-        break;}
-    case str_hash("date"):{
-        json_t* date_obj=json_object_get(root,"date");//get borrowed reference, so not required to call 'json_decref()'
-        if(date_obj==NULL)return -1;
-        json_int_t date=json_integer_value(date_obj);
-        if(dir_up1_down0)
-            sql="SELECT min(id) FROM logtable WHERE date>=" + std::to_string(date);
-        else
-            sql="SELECT max(id) FROM logtable WHERE date<=" + std::to_string(date);
-        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
-        CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
-        DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
-        break;}
-    case str_hash("counter"):{
-        json_t* WF_counter_obj=json_object_get(root,"counter");
-        if(WF_counter_obj==NULL)return -1;
-        json_int_t WF_counter=json_integer_value(WF_counter_obj);
-        if(dir_up1_down0)
-            sql="SELECT min(id) FROM logtable WHERE WF_counter>=" + std::to_string(WF_counter);
-        else
-            sql="SELECT max(id) FROM logtable WHERE WF_counter<=" + std::to_string(WF_counter);
-        sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveAnswer5DB_CB, (void*)&base_id, &zErrMsg);
-        CheckRequestOk(sql_res,"error to find requested id for DB_ServeTableRequest:",zErrMsg);
-        DEBUG(std::cout<<"requested ID="<<base_id<<std::endl;)
-        break;}
-    }
-    json_t* data_obj_arr_obj=json_object();//prepare object for answer from DB. This object will contain arrays of answer columns.
-    size_t idx;
-    json_t* arr_element_obj;///!!DON'T modify this after for()! We will use it later to count real amount of answer data!!
-    json_array_foreach(columns_arr_obj, idx,arr_element_obj){
-        json_object_set_new(data_obj_arr_obj,json_string_value(arr_element_obj),json_array());
-    }
+    DEBUG(cout<<"   colomns string="<<columns_sql_str<<endl;)
+    //END NN
+    int64_t base_id=DBreqGetBaseID(root,dir_up1_down0,row_amount);
+    if(base_id<0)return base_id;
+    //***
     if(dir_up1_down0)
         sql="SELECT " +columns_sql_str_group+" FROM logtable WHERE id >= "+ std::to_string(base_id) + " GROUP BY (WF_counter) ORDER BY id ASC LIMIT " + std::to_string(row_amount);
     else
         sql="SELECT " +columns_sql_str_group+" FROM logtable WHERE id <= "+ std::to_string(base_id) + " GROUP BY (WF_counter) ORDER BY id DESC LIMIT " + std::to_string(row_amount);
     sql= "SELECT " +columns_sql_str+" FROM (" + sql + ") AS desc_res ORDER BY WF_counter ASC";
-    DEBUG(std::cout<<"SQL  request>>"<<sql<<"<<"<<endl;)
-    sql_res = sqlite3_exec(log_db, sql.c_str(), &ReceiveNewRow5DB_CB, (void*)&data_obj_arr_obj, &zErrMsg);
-    CheckRequestOk(sql_res,"sql error to request answer table:",zErrMsg);
-    int real_amount=json_array_size(json_object_get(data_obj_arr_obj,json_string_value(arr_element_obj)));
-    DEBUG(std::cout<<"columns count="<<json_array_size(columns_arr_obj)<<endl;)
-    json_object_set(root,"data",data_obj_arr_obj);
-    json_object_set_new(root,"amount",json_integer(real_amount));
-    DEBUG(std::cout<<"data row count="<<real_amount<<endl;)
-    *answ=json_dumps(root,JSON_REAL_PRECISION(3)|JSON_INDENT(2));
-    json_decref(data_obj_arr_obj);
-    //!!! It is required??? -> json_object_clear(root);
-    return 0;
+
+    return DBreqRetriveData(root,columns_sql_str,sql,answ);
+}
+///*******************************************************************************************************************
+int tUp2Web_cl::DB_ServeAlarmsRequest(json_t* root,char**answ) {
+    string sql;
+    //**
+    int dir_up1_down0=DBreqGetDirection(root);
+    int row_amount=DBreqGetAmount(root);
+
+    int64_t base_id=DBreqGetBaseID(root,dir_up1_down0,row_amount);
+    if(base_id<0)return base_id;
+
+    string data_fields=              "date, WF_counter, alarms";
+    string data_fields_extra="x.id, x.date, x.WF_counter, x.alarms";
+    //***
+    sql="WITH r AS (\
+        SELECT "+data_fields_extra+ " \
+        FROM logtable x, logtable y \
+        ON x.id = y.id + 1 \
+        AND x.alarms <> y.alarms \
+        WHERE y.id IS NOT NULL AND x.id";
+    sql+=(dir_up1_down0 ? ">" : "<") +std::to_string(base_id) +" ORDER BY x.id ";
+    sql+=(dir_up1_down0 ? " ASC " : " DESC ");
+    sql+=" LIMIT " + to_string(row_amount) + " ) \n";
+    sql+= "SELECT " +data_fields+" FROM r ORDER BY id";
+    //***
+    return DBreqRetriveData(root,data_fields,sql,answ);
 }
 ///*******************************************************************************************************************
 tUp2Web_cl up2web;
@@ -489,9 +562,10 @@ tUp2Web_cl up2web;
 int ReceiveNewRow5DB_CB(void*json_ptr,int col_n,char** fields,char**col_names) {
     //if(col_n!=json_array_size(array))return 1;
     json_t* col_arr_obj;
+    int js_res;
     for(auto i=0; i<col_n; i++ ) {
         col_arr_obj=json_object_get(*(json_t**)json_ptr,col_names[i]);
-        json_array_append_new(col_arr_obj,json_string(fields[i]));
+        js_res=json_array_append_new(col_arr_obj,json_string(fields[i]));
     }
     return 0;
 }

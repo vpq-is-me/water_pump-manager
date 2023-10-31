@@ -50,6 +50,7 @@ public:
     void DB_Open(void);
     int DB_AddRow(void);
     int DB_ServeTableRequest(json_t*root,char**answ);
+    int DB_ServeAlarmsRequest(json_t*root,char**answ);
 private:
     tShared_mem_st* smem;
     sqlite3* log_db=nullptr;
@@ -58,10 +59,15 @@ private:
     bool IsInColumns(const std::string str){
         return std::find(DB_columns_arr.begin(),DB_columns_arr.end(),str)!=DB_columns_arr.end();
     }
+    int DBreqGetAmount(json_t*root);
+    int DBreqGetDirection(json_t*root);
+    int64_t DBreqGetBaseID(json_t*root,int& direction,int& amount);
+    int DBreqRetriveData(json_t *root,std::string fields,std::string sql,char**answ);
 };
 enum tag_en{TAG_REQSNAP        =1,
             TAG_CMDRESETALARM  =2,
-            TAG_DB_REQUEST     =3
+            TAG_DB_REQUEST     =3,
+            TAG_DB_ALARMS      =4
             };
 extern tUp2Web_cl up2web;
 
