@@ -2,3 +2,5 @@
 /obj
 /protobuf
 WaterPumpManager.layout
+WaterPumpManager.depend
+log.db

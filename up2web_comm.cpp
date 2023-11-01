@@ -548,7 +548,7 @@ int tUp2Web_cl::DB_ServeAlarmsRequest(json_t* root,char**answ) {
         ON x.id = y.id + 1 \
         AND x.alarms <> y.alarms \
         WHERE y.id IS NOT NULL AND x.id";
-    sql+=(dir_up1_down0 ? ">" : "<") +std::to_string(base_id) +" ORDER BY x.id ";
+    sql+=(dir_up1_down0 ? ">=" : "<=") +std::to_string(base_id) +" ORDER BY x.id ";
     sql+=(dir_up1_down0 ? " ASC " : " DESC ");
     sql+=" LIMIT " + to_string(row_amount) + " ) \n";
     sql+= "SELECT " +data_fields+" FROM r ORDER BY id";
