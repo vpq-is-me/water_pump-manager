@@ -4,3 +4,6 @@
 WaterPumpManager.layout
 WaterPumpManager.depend
 log.db
+error_db_log
+error_log
+
