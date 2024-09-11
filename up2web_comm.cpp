@@ -377,6 +377,16 @@ int tUp2Web_cl::DBreqGetAmount(json_t*root) {
     return res;
 }
 ///*******************************************************************************************************************
+uint32_t tUp2Web_cl::DBreqGetAlarmFilter(json_t*root){
+    uint32_t res=~0x0;
+    json_t*ptr=json_object_get(root,"filter");
+    if(ptr!=NULL){
+        res=json_integer_value(ptr);
+        DEBUG(cout<<"filter="<<res<<endl;)
+    }
+    return res;
+}
+///*******************************************************************************************************************
 int tUp2Web_cl::DBreqGetDirection(json_t *root){
     int res=0;
     char const* str_val;
@@ -541,12 +551,13 @@ int tUp2Web_cl::DB_ServeAlarmsRequest(json_t* root,char**answ) {
 
     string data_fields=              "date, WF_counter, alarms";
     string data_fields_extra="x.id, x.date, x.WF_counter, x.alarms";
+    string filter=std::to_string(DBreqGetAlarmFilter(root));
     //***
     sql="WITH r AS (\
         SELECT "+data_fields_extra+ " \
         FROM logtable x, logtable y \
         ON x.id = y.id + 1 \
-        AND x.alarms <> y.alarms \
+        AND (x.alarms & "+filter+" ) <> (y.alarms & "+ filter+ " ) \
         WHERE y.id IS NOT NULL AND x.id";
     sql+=(dir_up1_down0 ? ">=" : "<=") +std::to_string(base_id) +" ORDER BY x.id ";
     sql+=(dir_up1_down0 ? " ASC " : " DESC ");

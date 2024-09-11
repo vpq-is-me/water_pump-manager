@@ -61,6 +61,7 @@ private:
     }
     int DBreqGetAmount(json_t*root);
     int DBreqGetDirection(json_t*root);
+    uint32_t DBreqGetAlarmFilter(json_t*root);
     int64_t DBreqGetBaseID(json_t*root,int& direction,int& amount);
     int DBreqRetriveData(json_t *root,std::string fields,std::string sql,char**answ);
 };
